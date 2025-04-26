@@ -117,7 +117,7 @@ impl Downloader {
         if link_path.is_symlink() {
             let dest = fs::read_link(link_path)?;
             if dest.exists() {
-                println!("{:?}", dest);
+                tracing::info!("Already downloaded {:?}", dest);
                 return Ok(())
             }
             else {
@@ -275,12 +275,17 @@ impl Downloader {
 }
 
 fn write_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
-    #[cfg(any(windows, doc))] {
-        use std::os::windows::fs::symlink_file;
-        symlink_file(&original, &link)
+    if cfg!(windows) {
+        #[cfg(any(windows, doc))] {
+            use std::os::windows::fs::symlink_file;
+            symlink_file(&original, &link)?;
+        }
     }
-    #[cfg(any(unix, doc))] {
-        use std::os::unix::fs::symlink;
-        symlink(&original, &link)
+    else {
+        #[cfg(any(unix, doc))] {
+            use std::os::unix::fs::symlink;
+            symlink(&original, &link)?;
+        }
     }
+    Ok(())
 }
