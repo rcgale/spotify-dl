@@ -105,6 +105,11 @@ impl Downloader {
 
     #[tracing::instrument(name = "download_track", skip(self))]
     async fn download_track(&self, track: Track, options: &DownloadOptions) -> Result<()> {
+        let pb = self.progress_bar.add(ProgressBar::new(1));
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-"));
+
         let link_path = options.destination.join(format!(".index/{:?}", track.id.id));
         let link_path = link_path.as_path();
 
@@ -117,7 +122,7 @@ impl Downloader {
         if link_path.is_symlink() {
             let dest = fs::read_link(link_path)?;
             if dest.exists() {
-                tracing::info!("Already downloaded {:?}", dest);
+                pb.set_message(format!("{}", dest.to_str().unwrap_or_default()));
                 return Ok(())
             }
             else {
@@ -137,9 +142,12 @@ impl Downloader {
             .ok_or(anyhow::anyhow!("Could not set the output path"))?
             .to_string();
 
+        pb.set_message(file_name.clone());
+
         let (sink, mut sink_channel) = ChannelSink::new(&metadata);
 
         let file_size = sink.get_approximate_size();
+        pb.set_length(file_size as u64);
 
         let player = Player::new(
             self.player_config.clone(),
@@ -150,12 +158,7 @@ impl Downloader {
 
         let album_art = self.fetch_album_art(&metadata).await?;
 
-        let pb = self.progress_bar.add(ProgressBar::new(file_size as u64));
         pb.enable_steady_tick(Duration::from_millis(100));
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
-            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-            .progress_chars("#>-"));
-        pb.set_message(file_name.clone());
 
         player.load(track.id, true, 0);
 
