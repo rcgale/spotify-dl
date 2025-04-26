@@ -171,6 +171,8 @@ impl TrackCollection for Playlist {
 pub struct TrackMetadata {
     pub artists: Vec<ArtistMetadata>,
     pub track_name: String,
+    pub number: i32,
+    pub disc_number: i32,
     pub album: AlbumMetadata,
     pub duration: i32,
 }
@@ -190,6 +192,8 @@ impl TrackMetadata {
         TrackMetadata {
             artists,
             track_name: track.name.clone(),
+            number: track.number.clone(),
+            disc_number: track.disc_number.clone(),
             album,
             duration: track.duration,
         }
@@ -212,12 +216,18 @@ impl From<librespot::metadata::Artist> for ArtistMetadata {
 #[derive(Clone, Debug)]
 pub struct AlbumMetadata {
     pub name: String,
+    pub year: i32,
+    pub num_discs: i32,
+    pub cover: Option<librespot::metadata::image::Image>,
 }
 
 impl From<librespot::metadata::Album> for AlbumMetadata {
     fn from(album: librespot::metadata::Album) -> Self {
         AlbumMetadata {
             name: album.name.clone(),
+            year: album.date.as_utc().year(),
+            num_discs: album.discs.iter().map(|_| 1).sum(),
+            cover: album.covers.first().cloned(),
         }
     }
 }

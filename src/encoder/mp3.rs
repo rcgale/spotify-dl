@@ -3,6 +3,9 @@ use anyhow::Ok;
 use mp3lame_encoder::Builder;
 use mp3lame_encoder::FlushNoGap;
 use mp3lame_encoder::InterleavedPcm;
+use bytes::Bytes;
+
+use crate::track::TrackMetadata;
 
 use super::execute_with_result;
 use super::EncodedStream;
@@ -16,6 +19,8 @@ impl Mp3Encoder {
         &self,
         sample_rate: u32,
         channels: u32,
+        metadata: TrackMetadata,
+        album_art: Bytes
     ) -> anyhow::Result<mp3lame_encoder::Encoder> {
         let mut builder = Builder::new().ok_or(anyhow::anyhow!("Failed to create mp3 encoder"))?;
 
@@ -29,6 +34,23 @@ impl Mp3Encoder {
             .set_brate(mp3lame_encoder::Birtate::Kbps160)
             .map_err(|e| anyhow::anyhow!("Failed to set bitrate for mp3 encoder: {}", e))?;
 
+        builder.set_id3_tag(mp3lame_encoder::Id3Tag {
+                title: metadata.track_name.as_bytes(),
+                artist: metadata.artists
+                    .iter()
+                    .map(|a| a.name.clone())
+                    .take(1)
+                    .collect::<Vec<String>>()
+                    .join("")
+                    .as_bytes(),
+                track: format!("{}", metadata.number).as_bytes(),
+                album: metadata.album.name.as_bytes(),
+                album_art: &album_art,
+                year: format!("{}", metadata.album.year).as_bytes(),
+                genre: &[],
+                comment: &[],
+            })
+            .map_err(|e| anyhow::anyhow!("Failed to build ID3 tags: {:?}", e))?;
         builder
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to build mp3 encoder: {}", e))
@@ -37,8 +59,18 @@ impl Mp3Encoder {
 
 #[async_trait::async_trait]
 impl Encoder for Mp3Encoder {
-    async fn encode(&self, samples: Samples) -> anyhow::Result<EncodedStream> {
-        let mut mp3_encoder = self.build_encoder(samples.sample_rate, samples.channels)?;
+    async fn encode(
+        &self,
+        samples: Samples,
+        metadata: TrackMetadata,
+        album_art: Bytes
+    ) -> anyhow::Result<EncodedStream> {
+        let mut mp3_encoder = self.build_encoder(
+            samples.sample_rate,
+            samples.channels,
+            metadata,
+            album_art,
+        )?;
 
         let (tx, rx) = tokio::sync::oneshot::channel();
 

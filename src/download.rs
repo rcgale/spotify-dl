@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -99,6 +100,8 @@ impl Downloader {
             move || Box::new(sink),
         );
 
+        let album_art = self.fetch_album_art(&metadata).await?;
+
         let pb = self.progress_bar.add(ProgressBar::new(file_size as u64));
         pb.enable_steady_tick(Duration::from_millis(100));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
@@ -133,7 +136,7 @@ impl Downloader {
         pb.set_message(format!("Encoding {}", &file_name));
         let samples = Samples::new(samples, 44100, 2, 16);
         let encoder = crate::encoder::get_encoder(options.format);
-        let stream = encoder.encode(samples).await?;
+        let stream = encoder.encode(samples, metadata, album_art).await?;
 
         pb.set_message(format!("Writing {}", &file_name));
         tracing::info!("Writing track: {:?} to file: {}", file_name, &path);
@@ -185,5 +188,17 @@ impl Downloader {
             }
         }
         clean
+    }
+
+    async fn fetch_album_art(&self, metadata: &TrackMetadata) -> Result<Bytes>{
+        match metadata.album.cover {
+            Some(ref cover) => {
+                self.session.spclient()
+                    .get_image(&cover.id)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{:?}", e))
+            }
+            None => Err(anyhow::anyhow!("No cover art!"))
+        }
     }
 }

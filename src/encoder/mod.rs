@@ -4,8 +4,10 @@ mod mp3;
 
 use std::{path::Path, str::FromStr};
 
+use bytes::Bytes;
 use anyhow::Result;
 use tokio::sync::oneshot::Sender;
+use crate::track::TrackMetadata;
 
 use self::{flac::FlacEncoder, mp3::Mp3Encoder};
 
@@ -55,7 +57,12 @@ pub fn get_encoder(format: Format) -> &'static dyn Encoder {
 
 #[async_trait::async_trait]
 pub trait Encoder {
-    async fn encode(&self, samples: Samples) -> Result<EncodedStream>;
+    async fn encode(
+        &self,
+        samples: Samples,
+        metadata: TrackMetadata,
+        album_art: Bytes
+    ) -> Result<EncodedStream>;
 }
 
 pub struct Samples {
