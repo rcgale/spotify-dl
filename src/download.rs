@@ -1,9 +1,9 @@
 use bytes::Bytes;
 use std::fmt::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::str::FromStr;
-use std::fs;
+use std::{fs, io};
 
 use anyhow::Result;
 use futures::StreamExt;
@@ -190,8 +190,7 @@ impl Downloader {
         tracing::info!("Writing track: {:?} to file: {}", file_name, &path);
         stream.write_to_file(&path).await?;
 
-        #[allow(deprecated)]  // ah well
-        fs::soft_link(&path, &link_path)?;
+        write_link(&path, &link_path)?;
 
         pb.finish_with_message(format!("Downloaded {}", &file_name));
         Ok(())
@@ -272,5 +271,16 @@ impl Downloader {
             }
             None => Err(anyhow::anyhow!("No cover art!"))
         }
+    }
+}
+
+fn write_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
+    #[cfg(any(windows, doc))] {
+        use std::os::windows::fs::symlink_file;
+        symlink_file(&original, &link)
+    }
+    #[cfg(any(unix, doc))] {
+        use std::os::unix::fs::symlink;
+        symlink(&original, &link)
     }
 }
