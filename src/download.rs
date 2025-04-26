@@ -113,14 +113,8 @@ impl Downloader {
         let link_path = options.destination.join(format!(".index/{:?}", track.id.id));
         let link_path = link_path.as_path();
 
-        if let Some(parent) = link_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent)?;
-            }
-        }
 
-        if link_path.is_symlink() {
-            let dest = fs::read_link(link_path)?;
+        if let Some(dest) = read_link(link_path) {
             if dest.exists() {
                 pb.set_length(dest.metadata()?.len());
                 let link_target = dest.to_str().unwrap_or_default();
@@ -280,11 +274,14 @@ impl Downloader {
 }
 
 fn write_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
-    if cfg!(windows) {
-        #[cfg(any(windows, doc))] {
-            use std::os::windows::fs::symlink_file;
-            symlink_file(&original, &link)?;
+    if let Some(parent) = link.as_ref().parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
         }
+    }
+
+    if cfg!(windows) {
+        fs::write(link, original.as_ref().to_str().unwrap_or_default())?;
     }
     else {
         #[cfg(any(unix, doc))] {
@@ -293,4 +290,17 @@ fn write_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Resul
         }
     }
     Ok(())
+}
+
+fn read_link<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+    let path = path.as_ref();
+    if path.is_symlink() {
+        Some(fs::read_link(path).ok()?.into())
+    }
+    else if path.is_file() {
+        Some(fs::read_to_string(path).ok()?.into())
+    }
+    else {
+        None
+    }
 }
