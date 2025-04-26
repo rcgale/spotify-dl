@@ -2,6 +2,7 @@ use bytes::Bytes;
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::time::Duration;
+use std::str::FromStr;
 
 use anyhow::Result;
 use futures::StreamExt;
@@ -35,17 +36,43 @@ pub struct DownloadOptions {
     pub compression: Option<u32>,
     pub parallel: usize,
     pub format: Format,
+    pub folder_structure: FolderStructure
 }
 
 impl DownloadOptions {
-    pub fn new(destination: Option<String>, compression: Option<u32>, parallel: usize, format: Format) -> Self {
+    pub fn new(
+        destination: Option<String>,
+        compression: Option<u32>,
+        parallel: usize,
+        format: Format,
+        folder_structure: FolderStructure
+    ) -> Self {
         let destination =
             destination.map_or_else(|| std::env::current_dir().unwrap(), PathBuf::from);
         DownloadOptions {
             destination,
             compression,
             parallel,
-            format
+            format,
+            folder_structure
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum FolderStructure {
+    FLAT,
+    ALBUM,
+}
+
+impl FromStr for FolderStructure {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, <Self as FromStr>::Err> {
+        match s.to_uppercase().as_str() {
+            "FLAT" => Ok(Self::FLAT),
+            "ALBUM" => Ok(Self::ALBUM),
+            _ => Err(anyhow::anyhow!("Unrecognized structure: {}", s))
         }
     }
 }
@@ -80,7 +107,7 @@ impl Downloader {
         let metadata = track.metadata(&self.session).await?;
         tracing::info!("Downloading track: {:?}", metadata);
 
-        let file_name = self.get_file_name(&metadata);
+        let file_name = self.get_file_name(&metadata, FolderStructure::ALBUM);
         let path = options
             .destination
             .join(file_name.clone())
@@ -150,29 +177,50 @@ impl Downloader {
         Box::new(NoOpVolume)
     }
 
-    fn get_file_name(&self, metadata: &TrackMetadata) -> String {
+    fn get_file_name(&self, metadata: &TrackMetadata, structure: FolderStructure) -> String {
         // If there is more than 3 artists, add the first 3 and add "and others" at the end
-        if metadata.artists.len() > 3 {
-            let artists_name = metadata
+        let artists = metadata
                 .artists
                 .iter()
-                .take(3)
-                .map(|artist| artist.name.clone())
-                .collect::<Vec<String>>()
-                .join(", ");
-            return self.clean_file_name(format!(
-                "{}, and others - {}",
-                artists_name, metadata.track_name
-            ));
-        }
+            .map(|artist| artist.name.clone());
 
-        let artists_name = metadata
+        let artists_name = if artists.len() > 3 {
+            artists
+                .take(3)
+                .chain(["and others".to_string()])
+                .collect::<Vec<_>>()
+                .join(", ")
+        } else {
+            artists.collect::<Vec<String>>().join(", ")
+        };
+
+        let album_artist = metadata
             .artists
             .iter()
+            .take(1)
             .map(|artist| artist.name.clone())
             .collect::<Vec<String>>()
             .join(", ");
-        self.clean_file_name(format!("{} - {}", artists_name, metadata.track_name))
+
+
+        let parts = match structure {
+            FolderStructure::FLAT => vec![
+                format!("{} - {}", artists_name, metadata.track_name)
+            ],
+            FolderStructure::ALBUM => vec![
+                album_artist,
+                match metadata.album.num_discs {
+                    1 => metadata.album.name.clone(),
+                    _ => format!("{} (Disc {})", metadata.album.name, metadata.disc_number)
+                },
+                format!("{:0>2} {}", metadata.number, metadata.track_name)
+            ]
+        };
+
+        parts.into_iter()
+            .map(|part|  self.clean_file_name(part))
+            .collect::<Vec<_>>()
+            .join("/")
     }
 
     fn clean_file_name(&self, file_name: String) -> String {

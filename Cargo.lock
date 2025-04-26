@@ -1795,9 +1795,8 @@ dependencies = [
 
 [[package]]
 name = "mp3lame-encoder"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64622e64e2f9ee2a2fee97a6f53bd8b0301fa0fd15f2f4152f910091949689c7"
+version = "0.2.1"
+source = "git+https://github.com/rcgale/mp3lame-encoder.git?rev=0e67831#0e678313a8a09cd466548debd582c9696193ecb0"
 dependencies = [
  "libc",
  "mp3lame-sys",
@@ -2927,6 +2926,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "audiotags",
+ "bytes",
  "dirs",
  "flacenc",
  "futures",

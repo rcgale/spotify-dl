@@ -1,4 +1,4 @@
-use spotify_dl::download::{DownloadOptions, Downloader};
+use spotify_dl::download::{DownloadOptions, Downloader, FolderStructure};
 use spotify_dl::encoder::Format;
 use spotify_dl::session::create_session;
 use spotify_dl::track::get_tracks;
@@ -48,7 +48,15 @@ struct Opt {
         help = "The format to download the tracks in. Default is flac.",
         default_value = "flac"
     )]
-    format: Format
+    format: Format,
+    #[structopt(
+        long = "structure",
+        help = "The folder structure: .",
+        case_insensitive = true,
+        default_value = "FLAT",
+        possible_values = &["FLAT", "ALBUM"]
+    )]
+    folder_structure: FolderStructure
 }
 
 pub fn configure_logger() {
@@ -92,7 +100,13 @@ async fn main() -> anyhow::Result<()> {
     downloader
         .download_tracks(
             track,
-            &DownloadOptions::new(opt.destination, opt.compression, opt.parallel, opt.format),
+            &DownloadOptions::new(
+                opt.destination,
+                opt.compression,
+                opt.parallel,
+                opt.format,
+                opt.folder_structure
+            ),
         )
         .await
 }
