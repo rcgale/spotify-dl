@@ -88,11 +88,11 @@ impl Downloader {
             .ok_or(anyhow::anyhow!("Could not set the output path"))?
             .to_string();
 
-        let (sink, mut sink_channel) = ChannelSink::new(metadata);
+        let (sink, mut sink_channel) = ChannelSink::new(metadata.clone());
 
         let file_size = sink.get_approximate_size();
 
-        let (mut player, _) = Player::new(
+        let player = Player::new(
             self.player_config.clone(),
             self.session.clone(),
             self.volume_getter(),
