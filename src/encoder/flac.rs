@@ -1,18 +1,25 @@
 use flacenc::bitsink::ByteSink;
 use flacenc::component::BitRepr;
 use flacenc::error::Verify;
+use bytes::Bytes;
 
 use super::execute_with_result;
 use super::EncodedStream;
 use super::Encoder;
 use super::Samples;
+use crate::track::TrackMetadata;
 
 #[derive(Debug)]
 pub struct FlacEncoder;
 
 #[async_trait::async_trait]
 impl Encoder for FlacEncoder {
-    async fn encode(&self, samples: Samples) -> anyhow::Result<EncodedStream> {
+    async fn encode(
+        &self,
+        samples: Samples,
+        _: TrackMetadata,
+        _: Bytes  // album cover
+    ) -> anyhow::Result<EncodedStream> {
         let source = flacenc::source::MemSource::from_samples(
             &samples.samples,
             samples.channels as usize,

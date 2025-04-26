@@ -10,6 +10,7 @@ repository = "https://github.com/GuillemCastro/spotify-dl"
 description = "A command-line utility to download songs and playlists from Spotify"
 
 [dependencies]
+bytes = "1"
 structopt = { version = "0.3", default-features = false }
 rpassword = "7.0"
 indicatif = "0.17"
@@ -25,7 +26,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
 lazy_static = "1.4"
 async-trait = "0.1"
 dirs = "5.0"
-mp3lame-encoder = { version = "0.1.5", optional = true }
+mp3lame-encoder = { optional = true, git = "https://github.com/rcgale/mp3lame-encoder.git", rev = "0e67831" }
 futures = "0.3"
 rayon = "1.10"
 
