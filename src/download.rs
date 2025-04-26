@@ -122,7 +122,9 @@ impl Downloader {
         if link_path.is_symlink() {
             let dest = fs::read_link(link_path)?;
             if dest.exists() {
-                pb.set_message(format!("{}", dest.to_str().unwrap_or_default()));
+                pb.set_length(dest.metadata()?.len());
+                let link_target = dest.to_str().unwrap_or_default();
+                pb.finish_with_message(format!("Already downloaded {link_target}", ));
                 return Ok(())
             }
             else {
