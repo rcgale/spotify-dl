@@ -88,7 +88,7 @@ impl Downloader {
             .ok_or(anyhow::anyhow!("Could not set the output path"))?
             .to_string();
 
-        let (sink, mut sink_channel) = ChannelSink::new(metadata.clone());
+        let (sink, mut sink_channel) = ChannelSink::new(&metadata);
 
         let file_size = sink.get_approximate_size();
 

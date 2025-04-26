@@ -19,7 +19,7 @@ pub struct ChannelSink {
 
 impl ChannelSink {
 
-    pub fn new(track: TrackMetadata) -> (Self, SinkEventChannel) {
+    pub fn new(track: &TrackMetadata) -> (Self, SinkEventChannel) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
         (
