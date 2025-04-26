@@ -3,6 +3,7 @@ use std::fmt::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::str::FromStr;
+use std::fs;
 
 use anyhow::Result;
 use futures::StreamExt;
@@ -104,6 +105,26 @@ impl Downloader {
 
     #[tracing::instrument(name = "download_track", skip(self))]
     async fn download_track(&self, track: Track, options: &DownloadOptions) -> Result<()> {
+        let link_path = options.destination.join(format!(".index/{:?}", track.id.id));
+        let link_path = link_path.as_path();
+
+        if let Some(parent) = link_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+
+        if link_path.is_symlink() {
+            let dest = fs::read_link(link_path)?;
+            if dest.exists() {
+                println!("{:?}", dest);
+                return Ok(())
+            }
+            else {
+                fs::remove_file(link_path)?;
+            }
+        }
+
         let metadata = track.metadata(&self.session).await?;
         tracing::info!("Downloading track: {:?}", metadata);
 
@@ -168,6 +189,9 @@ impl Downloader {
         pb.set_message(format!("Writing {}", &file_name));
         tracing::info!("Writing track: {:?} to file: {}", file_name, &path);
         stream.write_to_file(&path).await?;
+
+        #[allow(deprecated)]  // ah well
+        fs::soft_link(&path, &link_path)?;
 
         pb.finish_with_message(format!("Downloaded {}", &file_name));
         Ok(())
