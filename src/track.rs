@@ -52,7 +52,7 @@ fn parse_url(track_url: &str) -> Option<SpotifyId> {
     SpotifyId::from_uri(&uri).ok()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Track {
     pub id: SpotifyId,
 }

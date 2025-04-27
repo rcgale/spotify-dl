@@ -88,7 +88,7 @@ impl Downloader {
     }
 
     pub async fn download_tracks(
-        self,
+        &self,
         tracks: Vec<Track>,
         options: &DownloadOptions,
     ) -> Result<()> {
@@ -104,7 +104,7 @@ impl Downloader {
     }
 
     #[tracing::instrument(name = "download_track", skip(self))]
-    async fn download_track(&self, track: Track, options: &DownloadOptions) -> Result<()> {
+    pub async fn download_track(&self, track: Track, options: &DownloadOptions) -> Result<String> {
         let pb = self.progress_bar.add(ProgressBar::new(1));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
@@ -119,7 +119,7 @@ impl Downloader {
                 pb.set_length(dest.metadata()?.len());
                 let link_target = dest.to_str().unwrap_or_default();
                 pb.finish_with_message(format!("Already downloaded {link_target}", ));
-                return Ok(())
+                return Ok(link_target.to_string())
             }
             else {
                 fs::remove_file(link_path)?;
@@ -192,7 +192,7 @@ impl Downloader {
         write_link(&path, &link_path)?;
 
         pb.finish_with_message(format!("Downloaded {}", &file_name));
-        Ok(())
+        Ok(path)
     }
 
     fn volume_getter(&self) -> Box<dyn VolumeGetter + Send> {
